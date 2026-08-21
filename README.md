@@ -1,0 +1,116 @@
+# ASP.NET Core SDD Starter
+
+A starter for building ASP.NET Core services using a **Spec-Driven Development (SDD)** workflow with Claude Code. It bundles a working ASP.NET Core / .NET 10 solution together with a `.claude/` toolchain — skills, agents, and hooks — that turns business rules into specs, specs into acceptance tests, and tests into code, with the test suite enforced automatically on every change.
+
+The project ships with a small example domain (a shipping cost calculator) so everything is runnable out of the box. See [Adapting This Starter](#adapting-this-starter) to make it your own.
+
+## Requirements
+
+- **.NET 10 SDK** (LTS). Check with `dotnet --list-sdks`. A `global.json` in the repo root pins the exact SDK version (`10.0.301`) so `dotnet` commands resolve to it even if newer/preview SDKs are also installed.
+- No wrapper needed — the .NET SDK includes the build/test/run tooling directly.
+- Internet access on first build so NuGet can fetch dependencies.
+
+## Build
+
+```bash
+dotnet build              # compile all projects
+dotnet build -c Release   # release configuration
+```
+
+Output assemblies are written to each project's `bin/` folder (e.g. `src/ShippingCalculator.Api/bin/Debug/net10.0/`).
+
+## Test
+
+```bash
+dotnet test                                                # run the full suite
+dotnet test --filter FullyQualifiedName~ShippingCostService # a single test class
+dotnet test tests/ShippingCalculator.Api.Tests              # only acceptance tests
+dotnet test -v detailed                                     # verbose output
+```
+
+Tests come in two tiers (see `CLAUDE.md` → *Testing Conventions*):
+
+- **Acceptance tests** — `tests/ShippingCalculator.Api.Tests/`, `WebApplicationFactory<Program>` + `HttpClient`, exercising the full HTTP cycle.
+- **Service / unit tests** — `tests/ShippingCalculator.Domain.Tests/`, plain xUnit, no web host.
+
+Testing stack: **xUnit** and **Shouldly**.
+
+## Run
+
+```bash
+dotnet run --project src/ShippingCalculator.Api
+```
+
+The service starts on **http://localhost:5016** by default (see the `http` profile in `src/ShippingCalculator.Api/Properties/launchSettings.json`; the exact port is also printed on startup).
+
+Example request against the bundled shipping calculator:
+
+```bash
+curl -X POST http://localhost:5016/api/shipping/calculate \
+  -H 'Content-Type: application/json' \
+  -d '{ "weightKg": 3.2, "zone": "European", "orderTotal": 50.00 }'
+```
+
+To change the port or other settings, edit `src/ShippingCalculator.Api/appsettings.json` or pass it at runtime: `dotnet run --project src/ShippingCalculator.Api --urls http://localhost:9090`.
+
+### API documentation (Swagger UI)
+
+With the app running, interactive API docs are at **http://localhost:5016/swagger**, generated automatically from the controllers by Swashbuckle.AspNetCore. The raw OpenAPI spec is at `/swagger/v1/swagger.json`.
+
+## The SDD Workflow
+
+Claude Code drives features through three steps, each backed by a skill you invoke by name:
+
+1. **`/discover`** — Turn a feature idea into a spec using Example Mapping (rule → example → counter-example → edge cases → open questions). Saves a draft spec to `docs/specs/<feature>.specs.md`.
+2. **`/accept`** — Write a failing acceptance test for the next rule in a spec, hitting the real endpoint. One rule at a time.
+3. **`/tdd`** — Run one TDD inner-loop cycle (RED → GREEN → REFACTOR) to drive that test to green with the minimum code.
+
+Two review agents enforce quality on demand:
+
+- **`architecture-guardian`** — checks that code respects the layer boundaries (controllers stay thin, services hold the logic, models stay data-only).
+- **`spec-compliance`** — checks that every spec rule has a test, that precision/ordering rules hold, and that the API contract matches.
+
+Three hooks (configured in `.claude/settings.json`) run automatically:
+
+- **PreToolUse** — `protect-files.sh` blocks edits to protected files (prod config, secrets, CI).
+- **PostToolUse** — runs `dotnet test` after every edit, so regressions surface immediately.
+- **Stop** — runs the full suite when a turn ends, gating completion on green tests.
+
+## Project Layout
+
+```
+ShippingCalculator.sln                          Solution file
+global.json                                      Pins the .NET SDK version
+src/ShippingCalculator.Api/                      Controllers/, Models/ (request/response DTOs), Program.cs
+src/ShippingCalculator.Domain/                   Services/, Models/ (domain value objects/enums), Shared/Result.cs
+tests/ShippingCalculator.Api.Tests/              Acceptance tests (WebApplicationFactory + HttpClient)
+tests/ShippingCalculator.Domain.Tests/           Service/unit tests (plain xUnit)
+docs/specs/                                      Business rules, one .specs.md file per feature
+CLAUDE.md                                        Project context Claude reads before any work
+.claude/skills/                                  discover, accept, tdd, and other workflow skills
+.claude/agents/                                  architecture-guardian, spec-compliance reviewers
+.claude/hooks/                                   protect-files.sh (file guard)
+.claude/settings.json                            Hook wiring
+```
+
+## Adapting This Starter
+
+This repo is a template. The `.claude/` toolchain works for any ASP.NET Core / .NET project — you replace the example domain with your own. Work through these in order; most files carry `ADAPT` comments pointing at exactly what to change.
+
+1. **`CLAUDE.md`** — the most important file; Claude reads it before doing anything. Each section is a working default with an `<!-- ADAPT -->` comment explaining what to change. Replace the Project Overview, Architecture, API Design, and (if present) Processing Order / Monetary sections with your domain, and delete the *Worked Example* block at the bottom once your sections are accurate.
+
+2. **`.csproj` files** — set the target framework and add the NuGet packages your project needs (e.g. `Microsoft.EntityFrameworkCore` for a database, `FluentValidation` if you want richer request validation on top of the `Result` pattern).
+
+3. **Rename the project** — change the solution and project names, the root namespaces, and move the code from the `ShippingCalculator.*` namespaces to your own.
+
+4. **`.claude/settings.json`** — if you don't use the `dotnet` CLI directly (e.g. a custom build script), change the test command in the PostToolUse and Stop hooks. The three-hook structure stays the same.
+
+5. **`.claude/hooks/protect-files.sh`** — add or remove entries in `PROTECTED_PATTERNS` for your project's sensitive files (`appsettings.Production.json`, CI config, lock files, etc.). Matching is substring-based; exit code 2 blocks an edit.
+
+6. **`.claude/agents/architecture-guardian.md`** — replace the layer boundaries with your architecture (hexagonal, clean architecture, microservice, …). State the *rules*; the agent discovers your actual classes by reading the source tree.
+
+7. **`.claude/agents/spec-compliance.md`** — update the Processing Order / Numeric Precision / Feature Interactions / API Contract checks for your domain, or remove sections that don't apply.
+
+8. **`docs/specs/`** — starts empty. Create one `<feature>.specs.md` per feature as you `/discover` them; every rule should end up with at least one acceptance test.
+
+Keep as-is: the `.claude/` directory structure, the hook exit-code convention (exit 2 to block), the two-tier test layout, and the `Controllers/` / `Services/` / `Models/` folder names — the skills and agents assume them.
