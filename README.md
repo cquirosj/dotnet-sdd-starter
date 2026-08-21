@@ -90,7 +90,7 @@ tests/ShippingCalculator.Domain.Tests/           Service/unit tests (plain xUnit
 docs/specs/                                      Business rules, one .specs.md file per feature
 docs/api/                                        OpenAPI contracts (optional; the review skill checks against them if present)
 CLAUDE.md                                        Project context Claude reads before any work
-.claude/skills/                                  discover, accept, tdd, review, commit-summary, claudius
+.claude/skills/                                  bootstrap, discover, accept, tdd, review, commit-summary, claudius
 .claude/agents/                                  architecture-guardian, spec-compliance, config-auditor, mutation-analyst
 .claude/rules/                                   Path-scoped conventions for Controllers/, Services/, Models/, tests/
 .claude/commands/                                quality-check (chains the review agents)
@@ -100,7 +100,28 @@ CLAUDE.md                                        Project context Claude reads be
 
 ## Adapting This Starter
 
-This repo is a template. The `.claude/` toolchain works for any ASP.NET Core / .NET project — you replace the example domain with your own. Work through these in order; most files carry `ADAPT` comments pointing at exactly what to change.
+This repo is a template. The `.claude/` toolchain works for any ASP.NET Core / .NET project — you replace the example domain with your own.
+
+### The fast path: `/bootstrap`
+
+Run **`/bootstrap`** right after cloning and Claude Code walks the whole
+adaptation below for you, interactively: project name, domain, architecture
+(pass `--architecture hexagonal` for ports & adapters instead of the default
+layered style), processing order, monetary precision, API shape, security,
+and protected files — then renames the solution and deletes the worked
+example's documentation once your own sections are accurate.
+
+The same skill also works the other way: copy just `.claude/skills/bootstrap/`
+into an **existing** ASP.NET Core project that doesn't have this toolchain yet,
+and run `/bootstrap` there. It detects it's being run on an existing codebase,
+fetches the rest of the harness from this public repo automatically, and
+infers every answer above by reading your code instead of asking — zero
+prompts. Check the report it prints at the end for anything it had to guess.
+
+### Doing it by hand
+
+Most files carry `ADAPT` comments pointing at exactly what to change, if you'd
+rather not run the skill (or want to understand what it's doing):
 
 1. **`CLAUDE.md`** — the most important file; Claude reads it before doing anything. Each section is a working default with an `<!-- ADAPT -->` comment explaining what to change. Replace the Project Overview, Architecture, API Design, and (if present) Processing Order / Monetary sections with your domain, and delete the *Worked Example* block at the bottom once your sections are accurate.
 
@@ -108,14 +129,14 @@ This repo is a template. The `.claude/` toolchain works for any ASP.NET Core / .
 
 3. **Rename the project** — change the solution and project names, the root namespaces, and move the code from the `ShippingCalculator.*` namespaces to your own.
 
-4. **`.claude/settings.json`** — if you don't use the `dotnet` CLI directly (e.g. a custom build script), change the test command in the PostToolUse and Stop hooks. The three-hook structure stays the same.
+4. **`.claude/settings.json`** — if you don't use the `dotnet` CLI directly (e.g. a custom build script), change the test command referenced in the `/accept` and `/tdd` skills. The hook wiring itself stays the same.
 
 5. **`.claude/hooks/protect-files.sh`** — add or remove entries in `PROTECTED_PATTERNS` for your project's sensitive files (`appsettings.Production.json`, CI config, lock files, etc.). Matching is substring-based; exit code 2 blocks an edit.
 
-6. **`.claude/agents/architecture-guardian.md`** — replace the layer boundaries with your architecture (hexagonal, clean architecture, microservice, …). State the *rules*; the agent discovers your actual classes by reading the source tree.
+6. **`.claude/agents/architecture-guardian.md`** — replace the layer boundaries with your architecture (hexagonal, clean architecture, microservice, …) — or just run `/bootstrap --architecture hexagonal`, which does this for you from a bundled template. State the *rules*; the agent discovers your actual classes by reading the source tree.
 
 7. **`.claude/agents/spec-compliance.md`** — update the Processing Order / Numeric Precision / Feature Interactions / API Contract checks for your domain, or remove sections that don't apply.
 
 8. **`docs/specs/`** — starts empty. Create one `<feature>.specs.md` per feature as you `/discover` them; every rule should end up with at least one acceptance test.
 
-Keep as-is: the `.claude/` directory structure, the hook exit-code convention (exit 2 to block), the two-tier test layout, and the `Controllers/` / `Services/` / `Models/` folder names — the skills and agents assume them.
+Keep as-is: the `.claude/` directory structure, the hook exit-code convention (exit 2 to block), the two-tier test layout, and the `Controllers/` / `Services/` / `Models/` folder names (or their `Domain/`/`Application/`/`Adapter/` hexagonal equivalents) — the skills and agents assume them.
