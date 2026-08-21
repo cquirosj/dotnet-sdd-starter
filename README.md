@@ -65,16 +65,18 @@ Claude Code drives features through three steps, each backed by a skill you invo
 2. **`/accept`** — Write a failing acceptance test for the next rule in a spec, hitting the real endpoint. One rule at a time.
 3. **`/tdd`** — Run one TDD inner-loop cycle (RED → GREEN → REFACTOR) to drive that test to green with the minimum code.
 
-Two review agents enforce quality on demand:
+Four review agents enforce quality on demand:
 
 - **`architecture-guardian`** — checks that code respects the layer boundaries (controllers stay thin, services hold the logic, models stay data-only).
 - **`spec-compliance`** — checks that every spec rule has a test, that precision/ordering rules hold, and that the API contract matches.
+- **`config-auditor`** — audits the `.claude/` setup itself for token efficiency and trigger reliability.
+- **`mutation-analyst`** — runs Stryker.NET and reports which surviving mutants indicate weak assertions.
 
-Three hooks (configured in `.claude/settings.json`) run automatically:
+One hook (configured in `.claude/settings.json`) runs automatically:
 
-- **PreToolUse** — `protect-files.sh` blocks edits to protected files (prod config, secrets, CI).
-- **PostToolUse** — runs `dotnet test` after every edit, so regressions surface immediately.
-- **Stop** — runs the full suite when a turn ends, gating completion on green tests.
+- **PreToolUse** — `protect-files.sh` blocks edits to protected files (prod config, secrets, CI). Tests are run explicitly by the `/accept` and `/tdd` skills as part of each cycle, not by a hook, so the red/green steps stay visible turn by turn.
+
+The `/quality-check` command chains spec-compliance, architecture-guardian, and (if a Stryker report exists) mutation-analyst into one consolidated report.
 
 ## Project Layout
 
@@ -86,11 +88,14 @@ src/ShippingCalculator.Domain/                   Services/, Models/ (domain valu
 tests/ShippingCalculator.Api.Tests/              Acceptance tests (WebApplicationFactory + HttpClient)
 tests/ShippingCalculator.Domain.Tests/           Service/unit tests (plain xUnit)
 docs/specs/                                      Business rules, one .specs.md file per feature
+docs/api/                                        OpenAPI contracts (optional; the review skill checks against them if present)
 CLAUDE.md                                        Project context Claude reads before any work
-.claude/skills/                                  discover, accept, tdd, and other workflow skills
-.claude/agents/                                  architecture-guardian, spec-compliance reviewers
+.claude/skills/                                  discover, accept, tdd, review, commit-summary, claudius
+.claude/agents/                                  architecture-guardian, spec-compliance, config-auditor, mutation-analyst
+.claude/rules/                                   Path-scoped conventions for Controllers/, Services/, Models/, tests/
+.claude/commands/                                quality-check (chains the review agents)
 .claude/hooks/                                   protect-files.sh (file guard)
-.claude/settings.json                            Hook wiring
+.claude/settings.json                            Hook + permission wiring
 ```
 
 ## Adapting This Starter

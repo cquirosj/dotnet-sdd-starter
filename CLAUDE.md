@@ -141,8 +141,10 @@ The reusable part of the starter — works for any domain:
 
 - **`.claude/settings.json`** — One hook: a file guard (PreToolUse) that blocks edits to sensitive files. Tests are run by the `/accept` and `/tdd` workflows, not by hooks, so the red/green steps of the cycle stay visible.
 - **`.claude/hooks/protect-files.sh`** — Blocks edits to sensitive files via `PROTECTED_PATTERNS`.
-- **`.claude/commands/`** — `/discover` (rule → example → counter-example → edge cases → questions), `/accept` (acceptance test against the real endpoint), `/tdd` (failing test → minimum code → verify → refactor).
-- **`.claude/agents/`** — `spec-compliance` (specs have tests, precision, feature interactions, API contract) and `architecture-guardian` (layer boundaries).
+- **`.claude/skills/`** — `discover` (rule → example → counter-example → edge cases → questions), `accept` (acceptance test against the real endpoint), `tdd` (failing test → minimum code → verify → refactor), `review` (read-only architecture/spec-compliance report before committing), `commit-summary`, and `claudius` (audits this `.claude/` setup itself).
+- **`.claude/commands/quality-check.md`** — chains `spec-compliance`, `architecture-guardian`, and (if a Stryker report exists) `mutation-analyst` into one consolidated report.
+- **`.claude/agents/`** — `spec-compliance` (specs have tests, precision, feature interactions, API contract), `architecture-guardian` (layer boundaries), `config-auditor` (audits the `.claude/` setup), `mutation-analyst` (runs Stryker.NET and reports weak assertions).
+- **`.claude/rules/`** — path-scoped conventions auto-loaded when editing `Controllers/`, `Services/`, `Models/`, or `tests/` (see each file's `paths:` frontmatter).
 
 <!-- ADAPT: Change the test command in the /accept and /tdd workflows if you
      don't use the dotnet CLI. Add your sensitive files to protect-files.sh.
@@ -188,5 +190,5 @@ An ASP.NET Core REST service that calculates shipping costs based on parcel weig
   { "totalCost": 15.00, "breakdown": { "baseRate": 10.00, "zoneMultiplier": 1.5, "zonedRate": 15.00, "freeShippingApplied": false } }
   ```
 
-- **Spec files:** `weight-tiers.specs.md`, `distance-zones.specs.md`, `free-shipping.specs.md`, `validation.specs.md` (once `.claude/` and `docs/specs/` are scaffolded in a later phase).
+- **Spec files:** `weight-tiers.specs.md`, `distance-zones.specs.md`, `free-shipping.specs.md`, `validation.specs.md` — not yet written; `docs/specs/` starts empty, run `/discover` to produce them.
 - **Security:** not yet configured — see the *Security* section above.
