@@ -2,6 +2,8 @@
 
 A starter for building ASP.NET Core services with a Spec-Driven Development (SDD) workflow. It ships with a working ASP.NET Core / .NET solution, structured for a `.claude/` toolchain (hooks, agents, commands) that drives a test-first workflow, enforces specs, and guards architecture boundaries.
 
+"SDD" is the practical label, but the discipline underneath is Specification by Example and Example Mapping (see `docs/methodology.md` for the full case) — and the one rule that makes this different from a code-generation shortcut applies to you specifically: **never write production code before its test has run and failed for the stated reason.** A red step that is skipped, assumed, or narrated without actually running defeats the entire point of `/accept` and `/tdd`.
+
 <!-- ADAPT: This file is the single most important input for Claude — it's read
      before any work. Every section below is a working default for a standard
      ASP.NET Core REST service. Edit the content to match your project; the
@@ -142,10 +144,12 @@ The reusable part of the starter — works for any domain:
 - **`.claude/settings.json`** — Two hooks: a file guard (PreToolUse) that blocks edits to sensitive files, and a session-start hook that prints orientation context. Tests are run by the `/accept` and `/tdd` workflows, not by hooks, so the red/green steps of the cycle stay visible.
 - **`.claude/hooks/protect-files.sh`** — Blocks edits to sensitive files via `PROTECTED_PATTERNS`.
 - **`.claude/hooks/session-start.sh`** — Prints the current branch, uncommitted/staged changes, and a workflow reminder at the start of every session.
-- **`.claude/skills/`** — `bootstrap` (resolves every ADAPT point in this file and the harness below — run this once, right after cloning; see README.md → Adapting This Starter), `discover` (rule → example → counter-example → edge cases → questions), `accept` (acceptance test against the real endpoint), `tdd` (failing test → minimum code → verify → refactor), `review` (read-only architecture/spec-compliance report before committing), `commit-summary`, and `claudius` (audits this `.claude/` setup itself).
-- **`.claude/commands/quality-check.md`** — chains `spec-compliance`, `architecture-guardian`, and (if a Stryker report exists) `mutation-analyst` into one consolidated report.
-- **`.claude/agents/`** — `spec-compliance` (specs have tests, precision, feature interactions, API contract), `architecture-guardian` (layer boundaries), `config-auditor` (audits the `.claude/` setup), `mutation-analyst` (runs Stryker.NET and reports weak assertions).
+- **`.claude/skills/`** — `bootstrap` (resolves every ADAPT point in this file and the harness below — run this once, right after cloning; see README.md → Adapting This Starter), `discover` (rule → example → counter-example → edge cases → questions), `accept` (acceptance test against the real endpoint), `tdd` (failing test → minimum code → verify → refactor), `review` (Step 4 — read-only architecture/spec-compliance/test-quality report; run before committing, whether that's after one cycle or after a whole feature — modifies nothing, just reports and waits), `commit-summary`, and `claudius` (audits this `.claude/` setup itself).
+- **`.claude/commands/quality-check.md`** — chains `spec-compliance`, `architecture-guardian`, and (if a Stryker report exists — run `dotnet stryker` first) `mutation-analyst` into one consolidated report at `quality-report.md` (gitignored — regenerate, don't commit).
+- **`.claude/agents/`** — `spec-compliance` (specs have tests, precision, feature interactions, API contract), `architecture-guardian` (layer boundaries), `config-auditor` (audits the `.claude/` setup), `mutation-analyst` (runs Stryker.NET and explains each surviving mutant — what changed, why no test caught it, a suggested assertion; run once the suite is green, since it measures assertion strength, not correctness).
 - **`.claude/rules/`** — path-scoped conventions auto-loaded when editing `Controllers/`, `Services/`, `Models/`, or `tests/` (see each file's `paths:` frontmatter).
+
+Full detail on all of the above — the BDD lineage, why the RED step is non-negotiable, the hooks' own history, and the complete skill/agent inventory — lives in `docs/methodology.md`.
 
 <!-- ADAPT: Change the test command in the /accept and /tdd workflows if you
      don't use the dotnet CLI. Add your sensitive files to protect-files.sh.

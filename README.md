@@ -1,6 +1,8 @@
 # ASP.NET Core SDD Starter
 
-A starter for building ASP.NET Core services using a **Spec-Driven Development (SDD)** workflow with Claude Code. It bundles a working ASP.NET Core / .NET 10 solution together with a `.claude/` toolchain — skills, agents, and hooks — that turns business rules into specs, specs into acceptance tests, and tests into code, with the test suite enforced automatically on every change.
+A starter for building ASP.NET Core services using a **Spec-Driven Development (SDD)** workflow with Claude Code. It bundles a working ASP.NET Core / .NET 10 solution together with a `.claude/` toolchain — skills, agents, and hooks — that turns business rules into specs, specs into acceptance tests, and tests into code.
+
+"SDD" undersells it, though. `/discover` is **Example Mapping**; the specs it produces follow **Specification by Example**; and `/accept` + `/tdd` hold real ATDD/TDD discipline — production code is never written before its test has run and failed for the stated reason. See [`docs/methodology.md`](docs/methodology.md) for the full case, the four-step cycle in detail, and where this comes from.
 
 The project ships with a small example domain (a shipping cost calculator) so everything is runnable out of the box. See [Adapting This Starter](#adapting-this-starter) to make it your own.
 
@@ -57,27 +59,30 @@ To change the port or other settings, edit `src/ShippingCalculator.Api/appsettin
 
 With the app running, interactive API docs are at **http://localhost:5016/swagger**, generated automatically from the controllers by Swashbuckle.AspNetCore. The raw OpenAPI spec is at `/swagger/v1/swagger.json`.
 
-## The SDD Workflow
+## The Development Workflow
 
-Claude Code drives features through three steps, each backed by a skill you invoke by name:
+Claude Code drives a feature through four steps, each backed by a skill you invoke by name:
 
 1. **`/discover`** — Turn a feature idea into a spec using Example Mapping (rule → example → counter-example → edge cases → open questions). Saves a draft spec to `docs/specs/<feature>.specs.md`.
-2. **`/accept`** — Write a failing acceptance test for the next rule in a spec, hitting the real endpoint. One rule at a time.
-3. **`/tdd`** — Run one TDD inner-loop cycle (RED → GREEN → REFACTOR) to drive that test to green with the minimum code.
+2. **`/accept`** — Write ONE failing acceptance test for the next rule in a spec, hitting the real endpoint.
+3. **`/tdd`** — Run one TDD inner-loop cycle (RED → GREEN → REFACTOR → CHALLENGE) to drive that test to green with the minimum code, then stop and propose the next edge case.
+4. **`/review`** — Read-only architecture, spec-compliance, and test-quality report of everything uncommitted. Run it whenever you're about to commit — after one cycle or after a whole feature, whichever makes sense — to catch what passing tests can't reveal (architecture violations, weak assertions, missing spec coverage, contract drift). It modifies nothing; it hands back a report and waits.
 
-Four review agents enforce quality on demand:
+Full detail on each step, and why the RED step in particular is non-negotiable, is in [`docs/methodology.md`](docs/methodology.md).
+
+Four agents enforce quality **on demand**, separately from the four-step cycle above:
 
 - **`architecture-guardian`** — checks that code respects the layer boundaries (controllers stay thin, services hold the logic, models stay data-only).
 - **`spec-compliance`** — checks that every spec rule has a test, that precision/ordering rules hold, and that the API contract matches.
+- **`mutation-analyst`** — runs Stryker.NET (`dotnet stryker`) and reports which **surviving** mutants indicate weak assertions, with a suggested fix for each.
 - **`config-auditor`** — audits the `.claude/` setup itself for token efficiency and trigger reliability.
-- **`mutation-analyst`** — runs Stryker.NET and reports which surviving mutants indicate weak assertions.
 
 Two hooks (configured in `.claude/settings.json`) run automatically:
 
 - **PreToolUse** — `protect-files.sh` blocks edits to protected files (prod config, secrets, CI). Tests are run explicitly by the `/accept` and `/tdd` skills as part of each cycle, not by a hook, so the red/green steps stay visible turn by turn.
 - **SessionStart** — `session-start.sh` prints the current branch and any uncommitted/staged changes at the top of every new or resumed session, plus a one-line workflow reminder (`/discover > /accept > /tdd`) — pure orientation, no gating.
 
-The `/quality-check` command chains spec-compliance, architecture-guardian, and (if a Stryker report exists) mutation-analyst into one consolidated report.
+The `/quality-check` command chains spec-compliance → architecture-guardian → mutation-analyst (run `dotnet stryker` first if you want that last one included) into one consolidated report at `quality-report.md` (gitignored — regenerate, don't commit).
 
 ## Project Layout
 
@@ -141,3 +146,9 @@ rather not run the skill (or want to understand what it's doing):
 8. **`docs/specs/`** — starts empty. Create one `<feature>.specs.md` per feature as you `/discover` them; every rule should end up with at least one acceptance test.
 
 Keep as-is: the `.claude/` directory structure, the hook exit-code convention (exit 2 to block), the two-tier test layout, and the `Controllers/` / `Services/` / `Models/` folder names (or their `Domain/`/`Application/`/`Adapter/` hexagonal equivalents) — the skills and agents assume them.
+
+## Origins & Further Reading
+
+This is a from-scratch ASP.NET Core / .NET port of [`serenity-dojo/claude-springboot-starter`](https://github.com/serenity-dojo/claude-springboot-starter) — same `.claude/` harness and methodology, Java original. The hexagonal-architecture templates (`.claude/skills/bootstrap/references/hexagonal/`) were extracted from [`serenity-dojo/cashback-rewards`](https://github.com/serenity-dojo/cashback-rewards)'s `section-13/solution` branch, the hands-on project for the Udemy course *Spec-Driven Development and TDD with AI* — its README's "Branch Map" section is a good section-by-section tour of why each piece of this kind of harness exists.
+
+See [`docs/methodology.md`](docs/methodology.md) for the full picture: why this is closer to BDD (Specification by Example, Example Mapping) with genuine ATDD/TDD discipline than a typical "spec-driven" code-generation flow, the four-step cycle in detail, the hooks' own history, and the quality/mutation-testing tooling.
