@@ -99,12 +99,13 @@ the public starter repo: **https://github.com/cquirosj/dotnet-sdd-starter**
      `--architecture hexagonal`.** The hexagonal set lives inside THIS skill
      (not the fetched clone) because it was authored specifically for this
      bootstrap flow — see Step 3's architecture note for what's in it.
-   - `.claude/settings.json` and `.claude/hooks/session-start.sh` — same
-     architecture-conditional source: the fetched clone's `settings.json` for
-     layered, or `references/hexagonal/settings.json` +
-     `references/hexagonal/hooks/session-start.sh` for hexagonal (the
-     hexagonal variant adds a `SessionStart` hook and a stricter protected-file
-     list — see that file for why).
+   - `.claude/hooks/session-start.sh` — already present in the fetched clone
+     for both architectures now; nothing to copy.
+   - `.claude/settings.json` — architecture-conditional: the fetched clone's
+     `settings.json` for layered (already includes the `SessionStart` hook),
+     or `references/hexagonal/settings.json` for hexagonal, which overwrites
+     it with a stricter protected-file list and a `PreToolUse` matcher that
+     also covers `Bash` — see that file for why.
    - `CLAUDE.md` — do NOT copy the fetched clone's CLAUDE.md verbatim (it
      describes the shipping-calculator worked example, which is irrelevant
      here). Instead, write a fresh CLAUDE.md using the ADAPT section structure
@@ -150,8 +151,10 @@ hexagonal versions from `references/hexagonal/` (relative to this skill):
 `.claude/agents/architecture-guardian.md`, `.claude/rules/domain-rules.md`,
 `.claude/rules/application-rules.md`, `.claude/rules/web-rules.md`,
 `.claude/rules/persistence-rules.md` (delete the layered `controller-rules.md`
-and `service-rules.md` — they don't apply), `.claude/settings.json`,
-`.claude/hooks/session-start.sh`, and CLAUDE.md's Architecture section (use
+and `service-rules.md` — they don't apply), `.claude/settings.json` (for its
+stricter protected-file list and `Bash`-covering `PreToolUse` matcher —
+`.claude/hooks/session-start.sh` itself needs no change, it's already
+architecture-agnostic), and CLAUDE.md's Architecture section (use
 `references/hexagonal/CLAUDE-architecture-section.md` as the replacement
 section body). Also **restructure the worked example's own folders** to match:
 `src/<Project>.Domain/Models/` → split into `Domain/Model/` (pure records/

@@ -72,9 +72,10 @@ Four review agents enforce quality on demand:
 - **`config-auditor`** — audits the `.claude/` setup itself for token efficiency and trigger reliability.
 - **`mutation-analyst`** — runs Stryker.NET and reports which surviving mutants indicate weak assertions.
 
-One hook (configured in `.claude/settings.json`) runs automatically:
+Two hooks (configured in `.claude/settings.json`) run automatically:
 
 - **PreToolUse** — `protect-files.sh` blocks edits to protected files (prod config, secrets, CI). Tests are run explicitly by the `/accept` and `/tdd` skills as part of each cycle, not by a hook, so the red/green steps stay visible turn by turn.
+- **SessionStart** — `session-start.sh` prints the current branch and any uncommitted/staged changes at the top of every new or resumed session, plus a one-line workflow reminder (`/discover > /accept > /tdd`) — pure orientation, no gating.
 
 The `/quality-check` command chains spec-compliance, architecture-guardian, and (if a Stryker report exists) mutation-analyst into one consolidated report.
 
@@ -94,7 +95,7 @@ CLAUDE.md                                        Project context Claude reads be
 .claude/agents/                                  architecture-guardian, spec-compliance, config-auditor, mutation-analyst
 .claude/rules/                                   Path-scoped conventions for Controllers/, Services/, Models/, tests/
 .claude/commands/                                quality-check (chains the review agents)
-.claude/hooks/                                   protect-files.sh (file guard)
+.claude/hooks/                                   protect-files.sh (file guard), session-start.sh (branch/diff orientation)
 .claude/settings.json                            Hook + permission wiring
 ```
 
