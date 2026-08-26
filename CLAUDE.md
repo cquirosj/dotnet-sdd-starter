@@ -119,6 +119,7 @@ So when this project grows a real outbound dependency:
 
 - **Writing its real implementation is an ordinary `/tdd` cycle** — same RED → GREEN → REFACTOR, just aimed at the repository/adapter tier. There is no separate skill or workflow for "now make it real", and no adapter should be left as a permanent stub that throws.
 - **Prove it against a real SQL engine.** Prefer Testcontainers (the actual engine you deploy on, in a throwaway container) when Docker is available; SQLite in-memory is a legitimate fallback when it isn't. The EF Core InMemory provider is not a database — no SQL, no constraints — so it never counts as this tier.
+- **Schema changes go through EF Core migrations** (`dotnet ef migrations add <DescribesTheChange>`, generated files committed), applied in tests with `MigrateAsync()` — never `EnsureCreated()`, which bypasses migrations and can pass against a schema they'd never produce. Never edit an already-applied migration; add another.
 - **Only for a dependency with no containerized equivalent** (a vendor SaaS API, a cloud management plane) fall back to environment-variable credentials — the developer's shell locally, repository/environment secrets in CI, never checked-in config — with the test skipping cleanly and explaining why when they're absent.
 
 Worked examples for every tier, including a Testcontainers one, live in `.claude/skills/tdd/test-patterns.md`.

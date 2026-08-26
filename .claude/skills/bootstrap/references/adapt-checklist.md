@@ -126,6 +126,12 @@ worked example ships with none, so the starter's default is "not yet."
   Docker is available, or `Microsoft.Data.Sqlite` for the no-Docker fallback.
   Ask (greenfield) / check for a `Dockerfile`, compose file, or CI service
   container (brownfield) before assuming Docker is on hand.
+- **Relational database specifically:** confirm schema changes go through EF
+  Core migrations. **Brownfield:** look for a `Migrations/` folder next to the
+  `DbContext`; if there is none but there is a `DbContext`, or if you find
+  `EnsureCreated()` in startup or test setup, flag it — that project builds
+  its schema from the model and has no migration history, so the repository
+  tier can pass against a schema production would never get.
 - **Brownfield:** if repositories/adapters already exist with no test that
   ever runs them against a real engine, say so plainly in the final report.
   That's the gap this tier exists to close, and it's the single most valuable

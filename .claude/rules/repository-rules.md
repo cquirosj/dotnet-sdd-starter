@@ -29,5 +29,13 @@ talks to the database.
 - Writing this repository's real implementation is an ordinary `/tdd` cycle at
   that tier — not a separate workflow, and not something to defer once the
   services calling it are green.
+- **Schema changes go through EF Core migrations, never `EnsureCreated()` and
+  never a hand-edited database.** Add one with
+  `dotnet ef migrations add <DescribesTheChange>`, commit the generated files,
+  and let tests apply them with `await dbContext.Database.MigrateAsync()` so
+  the schema under test is the same one production gets. `EnsureCreated()`
+  bypasses migrations entirely and will quietly diverge from them.
+- Never edit an applied migration — add a new one. Editing one that has run
+  anywhere leaves other environments unable to reach the same schema.
 
 These boundaries are also audited by the `architecture-guardian` agent.

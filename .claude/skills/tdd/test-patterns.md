@@ -428,6 +428,15 @@ duplicate, that a migration applies cleanly, that your mapping reads back
 what it wrote. Don't re-test business rules here — those belong at the
 service tier, which already proved them without a container.
 
+**Note the `MigrateAsync()` call**, not `EnsureCreatedAsync()`. Schema changes
+belong in EF Core migrations (`dotnet ef migrations add <DescribesTheChange>`,
+generated files committed), and the test applies the same migrations
+production will. `EnsureCreated()` builds the schema straight from the model,
+bypassing migrations entirely — so it can pass against a schema your
+migrations would never produce, which is precisely the bug this tier exists to
+catch. Never edit a migration that has already been applied anywhere; add
+another one.
+
 **Whichever engine you pick, the tier is not optional.** The choice above is
 about fidelity and what your machine can run; it is not permission to skip
 the tier and let a fake stand in for the real implementation. A SQLite-backed
