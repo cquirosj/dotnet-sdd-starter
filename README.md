@@ -81,7 +81,7 @@ Four agents enforce quality **on demand**, separately from the four-step cycle a
 
 Two hooks (configured in `.claude/settings.json`) run automatically:
 
-- **PreToolUse** — `protect-files.sh` blocks edits to protected files (prod config, secrets, CI). Tests are run explicitly by the `/accept` and `/tdd` skills as part of each cycle, not by a hook, so the red/green steps stay visible turn by turn.
+- **PreToolUse** — `protect-files.sh` blocks access to protected files (prod config, secrets, CI), checking the `file_path` of an `Edit`/`Write` and the command text of a `Bash` call alike, so a shell redirect can't walk around it. Tests are run explicitly by the `/accept` and `/tdd` skills as part of each cycle, not by a hook, so the red/green steps stay visible turn by turn.
 - **SessionStart** — `session-start.sh` prints the current branch and any uncommitted/staged changes at the top of every new or resumed session, plus a one-line workflow reminder (`/discover > /accept > /tdd`) — pure orientation, no gating.
 
 The `/quality-check` command chains spec-compliance → architecture-guardian → mutation-analyst (run `dotnet stryker` first if you want that last one included) into one consolidated report at `quality-report.md` (gitignored — regenerate, don't commit).
