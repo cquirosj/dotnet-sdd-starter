@@ -48,6 +48,14 @@ boundary — **drop down**: drive it with its own RED at the lower tier. Don't l
 it ride along inside the acceptance test, and don't reach through an aggregate to
 assert a sub-value that wants its own seam.
 
+If what you're driving is the **real implementation of an outbound port** — a
+repository, a broker client, a third-party API adapter — that is this same loop,
+at the repository/adapter tier: RED against a real engine in a Testcontainers
+container, GREEN writes the real implementation. It is not a separate workflow,
+and it is not deferred work: an adapter that has only ever run against a fake has
+not been proven at all, so don't leave one as a permanent throwing stub. Read
+`test-patterns.md` → "Repository / outbound adapter" before writing that RED.
+
 ## RED — write the test; watch it fail for the right reason
 
 Write the one test at the tier you chose, then run it. It must fail with an

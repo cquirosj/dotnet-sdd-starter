@@ -35,6 +35,8 @@ Tests come in two tiers (see `CLAUDE.md` → *Testing Conventions*):
 - **Acceptance tests** — `tests/ShippingCalculator.Api.Tests/`, `WebApplicationFactory<Program>` + `HttpClient`, exercising the full HTTP cycle.
 - **Service / unit tests** — `tests/ShippingCalculator.Domain.Tests/`, plain xUnit, no web host.
 
+A third tier joins them the moment the project grows a real outbound dependency (database, broker, third-party API): **repository / outbound adapter tests**, which prove the real implementation against a real engine via Testcontainers. Writing that implementation is an ordinary `/tdd` cycle at that tier — see `CLAUDE.md` → *Proving real implementations*.
+
 Testing stack: **xUnit** and **Shouldly**.
 
 ## Run
@@ -145,7 +147,7 @@ rather not run the skill (or want to understand what it's doing):
 
 8. **`docs/specs/`** — starts empty. Create one `<feature>.specs.md` per feature as you `/discover` them; every rule should end up with at least one acceptance test.
 
-Keep as-is: the `.claude/` directory structure, the hook exit-code convention (exit 2 to block), the two-tier test layout, and the `Controllers/` / `Services/` / `Models/` folder names (or their `Domain/`/`Application/`/`Adapter/` hexagonal equivalents) — the skills and agents assume them.
+Keep as-is: the `.claude/` directory structure, the hook exit-code convention (exit 2 to block), the test tier layout, and the `Controllers/` / `Services/` / `Models/` folder names (or their `Domain/`/`Application/`/`Adapter/` hexagonal equivalents) — the skills and agents assume them.
 
 ## Origins & Further Reading
 

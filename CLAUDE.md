@@ -98,10 +98,11 @@ Response 200:
 
 ## Testing Conventions
 
-Two tiers of tests:
+Two tiers of tests, plus a third as soon as the project grows a real outbound dependency:
 
 - **Acceptance tests** (`tests/ShippingCalculator.Api.Tests/`): `WebApplicationFactory<Program>` + `HttpClient`. One test class per feature, suffixed `AcceptanceTests`. Test the full HTTP request/response cycle.
 - **Service / unit tests** (`tests/ShippingCalculator.Domain.Tests/`): Plain xUnit, no `WebApplicationFactory`. Test business logic directly.
+- **Repository / outbound adapter tests** — only once the project has a database, broker, or third-party API. Prove the REAL implementation against the REAL engine with Testcontainers. See "Proving real implementations" below.
 
 Conventions:
 
@@ -110,9 +111,23 @@ Conventions:
 - Acceptance tests verify the HTTP contract; service tests verify business logic. Don't duplicate the same assertions across both tiers.
 - Run the suite with `dotnet test`. The `/accept` and `/tdd` workflows run it for you as part of each cycle, so you see each test go red and green yourself.
 
+### Proving real implementations
+
+The acceptance and service tiers substitute a fake for every outbound dependency. That's correct — it's what keeps the inner loop fast and deterministic. But it also means a repository or adapter can sit at 100% green while never once having run against the system it adapts, and a fake can't reject your SQL, enforce a constraint, or disagree with your mapping.
+
+So when this project grows a real outbound dependency:
+
+- **Writing its real implementation is an ordinary `/tdd` cycle** — same RED → GREEN → REFACTOR, just aimed at the repository/adapter tier. There is no separate skill or workflow for "now make it real", and no adapter should be left as a permanent stub that throws.
+- **Prove it against a real SQL engine.** Prefer Testcontainers (the actual engine you deploy on, in a throwaway container) when Docker is available; SQLite in-memory is a legitimate fallback when it isn't. The EF Core InMemory provider is not a database — no SQL, no constraints — so it never counts as this tier.
+- **Only for a dependency with no containerized equivalent** (a vendor SaaS API, a cloud management plane) fall back to environment-variable credentials — the developer's shell locally, repository/environment secrets in CI, never checked-in config — with the test skipping cleanly and explaining why when they're absent.
+
+Worked examples for every tier, including a Testcontainers one, live in `.claude/skills/tdd/test-patterns.md`.
+
 <!-- ADAPT: Change the test directories, the build command, and the example
-     names if your conventions differ. Keep the two-tier structure — the
-     agents and commands assume it. -->
+     names if your conventions differ. Keep the tier structure — the agents
+     and commands assume it. Delete the "Proving real implementations"
+     section only if this project will never talk to a database, broker, or
+     external API. -->
 
 ## Spec Files
 

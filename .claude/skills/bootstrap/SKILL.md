@@ -150,8 +150,10 @@ exists on disk as the layered default), replace these files with the bundled
 hexagonal versions from `references/hexagonal/` (relative to this skill):
 `.claude/agents/architecture-guardian.md`, `.claude/rules/domain-rules.md`,
 `.claude/rules/application-rules.md`, `.claude/rules/web-rules.md`,
-`.claude/rules/persistence-rules.md` (delete the layered `controller-rules.md`
-and `service-rules.md` — they don't apply), `.claude/settings.json` (for its
+`.claude/rules/persistence-rules.md` (delete the layered `controller-rules.md`,
+`service-rules.md`, and `repository-rules.md` — they don't apply; the hexagonal
+`persistence-rules.md` carries the same repository/Testcontainers guidance for
+`Adapter/Out/Persistence/`), `.claude/settings.json` (for its
 stricter protected-file list and `Bash`-covering `PreToolUse` matcher —
 `.claude/hooks/session-start.sh` itself needs no change, it's already
 architecture-agnostic), and CLAUDE.md's Architecture section (use

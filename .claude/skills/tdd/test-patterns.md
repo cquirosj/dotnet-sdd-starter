@@ -33,6 +33,11 @@ prove otherwise (HTTP routing, JSON (de)serialization, status codes).
 | Service / business logic | Plain xUnit + Shouldly | No | The calculation/orchestration rules, and both branches of every `Result<TValue, Error>` |
 | Controller (web slice) | `WebApplicationFactory` + a hand-written stub swapped in via `ConfigureTestServices` | Web host, real service replaced by a stub | Routing, (de)serialization, status codes — not business logic |
 | Acceptance / full HTTP cycle | `WebApplicationFactory<Program>` + `HttpClient`, real service wired in | Full app, in-memory server | The whole wired path end to end, no network |
+| Repository / outbound adapter | Plain xUnit + **Testcontainers** — a real engine in a throwaway container | No | That the *real* implementation works against the *real* external system, not against a fake |
+
+That last row is the one people skip, and skipping it is how a codebase ends
+up with a fully green suite and an outbound adapter nobody has ever run. See
+"Repository / outbound adapter tier" below.
 
 Don't *exhaustively* re-test a rule at the acceptance tier: keep one
 representative, business-readable example there as living documentation, and
@@ -340,13 +345,122 @@ In the test-run report this reads as **`Validation` › "The one where
 negative weight is rejected with a 400 and a validation error body"** — each
 nested class a group, each example a line under it.
 
-## Repository layer (only once a database is added)
+## 5. Repository / outbound adapter — Testcontainers against a real engine
 
-This service has no persistence layer today, so there's nothing to test
-here yet. When a database is introduced (e.g. via EF Core), add an
-integration tier that exercises the real (or in-memory/test-container)
-database, and keep persistence-mapping entities out of `Models/` — they
-belong in their own layer, per the architecture rules.
+This starter's worked example has no persistence and no outbound
+dependency, so there's nothing to test here *yet*. Read this section the
+moment your project grows one — a database, a message broker, a cache, a
+third-party HTTP API.
+
+**Writing the real implementation is an ordinary `/tdd` cycle.** There is no
+separate skill, command, or workflow for it: you pick this tier in AIM, write
+a RED test against a real engine, and write the real adapter in GREEN. The
+only thing that changes is what the test talks to.
+
+**Why this tier is not optional.** Every other tier substitutes a fake for
+your outbound port, which is exactly right — it keeps the inner loop fast and
+deterministic. But it also means a repository or adapter can be "fully
+tested" while never once having run against the thing it's an adapter *for*.
+A fake can't reject your SQL, can't enforce a unique constraint, can't
+disagree with your mapping. This tier is where the real system gets its say.
+
+**Pick the engine deliberately — highest fidelity you can actually run:**
+
+| Option | Real SQL engine? | Needs Docker? | Use when |
+| --- | --- | --- | --- |
+| **Testcontainers** | Yes — the actual engine you deploy on | Yes | Default when Docker is available. Highest fidelity: your real dialect, your real constraints, your real migrations. |
+| **SQLite in-memory** (`Microsoft.Data.Sqlite`, `:memory:`) | Yes, but a different dialect | No | Docker isn't available, or you want a fast in-process tier. Catches mapping and constraint mistakes; won't catch provider-specific SQL. |
+| **EF Core InMemory provider** | **No** — not relational at all | No | Almost never. It doesn't run SQL, ignores constraints, and will accept a schema the real database rejects. |
+
+Don't let the third row masquerade as the second: the EF Core InMemory
+provider is a dictionary with a LINQ front end, not a database. If Docker is
+out of reach, reach for SQLite in-memory, not InMemory.
+
+The Testcontainers version — a real engine in a throwaway container, started
+and disposed by the test itself, no shared local install and no
+developer-machine drift:
+
+```xml
+<PackageReference Include="Testcontainers.PostgreSql" Version="4.0.0" />
+```
+
+```csharp
+using Testcontainers.PostgreSql;
+
+namespace ShippingCalculator.Api.Tests.Repositories;
+
+public class ShipmentRepositoryTests : IAsyncLifetime
+{
+    private readonly PostgreSqlContainer _database =
+        new PostgreSqlBuilder().WithImage("postgres:17-alpine").Build();
+
+    private ShipmentDbContext _dbContext = null!;
+
+    public async Task InitializeAsync()
+    {
+        await _database.StartAsync();
+        _dbContext = new ShipmentDbContext(
+            new DbContextOptionsBuilder<ShipmentDbContext>()
+                .UseNpgsql(_database.GetConnectionString())
+                .Options);
+        await _dbContext.Database.MigrateAsync();
+    }
+
+    public async Task DisposeAsync() => await _database.DisposeAsync();
+
+    [Fact(DisplayName = "The one where a saved shipment is read back with its cost intact")]
+    public async Task SavedShipmentIsReadBackWithItsCostIntact()
+    {
+        var repository = new ShipmentRepository(_dbContext);
+        await repository.SaveAsync(new Shipment("SHIP-1", 15.00m));
+
+        var found = await repository.FindByReferenceAsync("SHIP-1");
+
+        found.ShouldNotBeNull();
+        found.Cost.ShouldBe(15.00m);   // decimal, not double — the DB column type matters here
+    }
+}
+```
+
+Assert the things only a real engine can prove: that `decimal` survives the
+round trip at the right scale, that a unique constraint actually rejects a
+duplicate, that a migration applies cleanly, that your mapping reads back
+what it wrote. Don't re-test business rules here — those belong at the
+service tier, which already proved them without a container.
+
+**Whichever engine you pick, the tier is not optional.** The choice above is
+about fidelity and what your machine can run; it is not permission to skip
+the tier and let a fake stand in for the real implementation. A SQLite-backed
+repository test that actually runs your queries is worth far more than no
+repository test at all.
+
+**The genuine exception: a dependency with no containerized equivalent** — a
+vendor SaaS API, a cloud provider's management plane. Only there, fall back
+to a test that reads credentials **exclusively from environment variables**
+(the developer's shell locally, repository/environment secrets in CI — never
+`appsettings.json`, never hard-coded), and **skips cleanly with an
+explanatory message** when they're absent, so a contributor without those
+credentials still sees a green suite:
+
+```csharp
+[Fact(DisplayName = "The one where the real vendor API confirms a known account")]
+public async Task RealVendorApiConfirmsAKnownAccount()
+{
+    var apiKey = Environment.GetEnvironmentVariable("VENDOR_API_KEY");
+    if (apiKey is null)
+    {
+        _output.WriteLine("SKIPPED: set VENDOR_API_KEY to run this against the real vendor API.");
+        return;
+    }
+    // ...exercise the real adapter...
+}
+```
+
+That environment-variable read belongs in the **test**, to decide whether to
+skip. The adapter itself takes its configuration the normal ASP.NET Core way
+— constructor-injected `IOptions<T>` / `IConfiguration`, bound from
+environment variables by the framework's built-in provider — never a direct
+`Environment.GetEnvironmentVariable` call in production code.
 
 ## Data-driven rules → one `[Theory]`, not one `[Fact]` per row
 

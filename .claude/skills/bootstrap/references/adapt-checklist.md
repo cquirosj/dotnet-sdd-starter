@@ -98,3 +98,43 @@ hand, and leave the existing code's pattern alone rather than overwriting it.
   build wrapper or a non-standard test invocation, update
   `.claude/settings.json`'s hook commands and the `/accept`/`/tdd` skills'
   references to match.
+
+## 11. Outbound dependencies (database, broker, external API)
+
+Decides whether the repository / outbound-adapter test tier applies. The
+worked example ships with none, so the starter's default is "not yet."
+
+- **Ask (greenfield):** "Will this service talk to a database, message broker,
+  cache, or third-party API?" Offer: a relational database (EF Core) · a
+  broker or cache · a third-party HTTP API · none yet.
+- **Infer (brownfield):** grep the `.csproj` files for
+  `Microsoft.EntityFrameworkCore*`, `Npgsql*`, `Microsoft.Data.SqlClient`,
+  `StackExchange.Redis`, `RabbitMQ.Client`, `Azure.Messaging.*`, `MassTransit`,
+  or a registered `HttpClient`/`IHttpClientFactory`; and look for a
+  `Repositories/`, `Adapter/Out/`, or `*DbContext.cs`.
+
+**If there is at least one:**
+
+- Keep CLAUDE.md's *Proving real implementations* section and the repository
+  tier row in its Testing Conventions, naming the actual dependencies.
+- Keep `.claude/rules/repository-rules.md` (layered) or
+  `.claude/rules/persistence-rules.md` (hexagonal), and correct its `paths:`
+  frontmatter to the folder this project actually uses.
+- Add the test package for the engine you'll prove against: the matching
+  Testcontainers one (`Testcontainers.PostgreSql`, `Testcontainers.MsSql`,
+  `Testcontainers.RabbitMq`, … — one per engine, not the meta-package) when
+  Docker is available, or `Microsoft.Data.Sqlite` for the no-Docker fallback.
+  Ask (greenfield) / check for a `Dockerfile`, compose file, or CI service
+  container (brownfield) before assuming Docker is on hand.
+- **Brownfield:** if repositories/adapters already exist with no test that
+  ever runs them against a real engine, say so plainly in the final report.
+  That's the gap this tier exists to close, and it's the single most valuable
+  thing this bootstrap can surface — but adding those tests is later `/tdd`
+  work, not something this skill does inline.
+
+**If there are none:** delete CLAUDE.md's *Proving real implementations*
+section (per its own ADAPT comment), drop the repository tier row from Testing
+Conventions, and delete the repository/persistence rules file. Don't leave a
+section describing a tier this project has nothing to put in — and say in the
+final report that it was removed, so it's re-added deliberately when the first
+real dependency arrives.
