@@ -23,10 +23,31 @@
 #   Exit codes:
 #     0 — allow the edit
 #     2 — block the edit (Claude sees the error and tries another approach)
+#
+# WHAT THIS CHECKS:
+#   Edit/Write pass a `file_path`; Bash passes a `command`. Both are checked,
+#   because a hook that only looked at `file_path` would wave through
+#   `echo x > appsettings.Production.json` — the matcher in settings.json can
+#   say `Edit|Write|Bash` and still protect nothing.
+#
+#   The Bash check is deliberately blunt: if a protected pattern appears
+#   anywhere in the command text, the command is blocked, read-only ones
+#   (`cat .env`) included — reading a secret is exactly what should be
+#   stopped. It is a guardrail against honest mistakes, not a sandbox: a
+#   determined command can always obscure a path (variables, globs, base64).
+#   For hard guarantees use `permissions.deny` in settings.json, which the
+#   harness enforces itself.
+#
+#   NOTE on `.claude/`: it is deliberately NOT in the list below. The harness
+#   is protected by `permissions.deny` on Edit/Write in settings.json, which
+#   leaves Bash free to install and adapt it — that's what `/bootstrap` needs.
+#   Adding `.claude` here would close that door permanently, including on the
+#   bootstrap skill itself.
 # ──────────────────────────────────────────────────────────────────────
 
 INPUT=$(cat)
 FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
+COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
 
 # ADAPT: Add patterns for files Claude should never edit in your project
 PROTECTED_PATTERNS=(
@@ -37,8 +58,16 @@ PROTECTED_PATTERNS=(
 )
 
 for pattern in "${PROTECTED_PATTERNS[@]}"; do
-  if [[ "$FILE_PATH" == *"$pattern"* ]]; then
-    echo "Blocked: $FILE_PATH matches '$pattern'" >&2
+  # Edit / Write — the tool names its target outright.
+  if [[ -n "$FILE_PATH" && "$FILE_PATH" == *"$pattern"* ]]; then
+    echo "Blocked: $FILE_PATH matches protected pattern '$pattern'" >&2
+    exit 2
+  fi
+
+  # Bash — no file_path, so inspect the command text instead.
+  if [[ -n "$COMMAND" && "$COMMAND" == *"$pattern"* ]]; then
+    echo "Blocked: command references protected pattern '$pattern'." >&2
+    echo "If this file genuinely needs to change, the user should edit it themselves." >&2
     exit 2
   fi
 done

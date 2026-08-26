@@ -10,6 +10,15 @@ You are editing test code. Tests are executable specifications.
   + `HttpClient` acceptance tests only for the HTTP contract. Don't repeat the
   same assertion across both tiers. (Per-tier compiled examples live in the tdd
   skill's `test-patterns.md`.)
+- A **repository or other outbound adapter** gets one more tier, and it is not
+  optional: prove the REAL implementation against a REAL SQL engine —
+  Testcontainers when Docker is available, SQLite in-memory when it isn't,
+  never the EF Core InMemory provider (which runs no SQL and ignores
+  constraints). Every other tier substitutes a fake for that port — which is
+  correct, and which is also why an adapter can look fully tested while never
+  once having run against the thing it adapts. Writing that real
+  implementation is an ordinary `/tdd` cycle at this tier, never a separate
+  workflow. See `test-patterns.md` → "Repository / outbound adapter".
 - Placement: acceptance tests in the `*.Api.Tests` project (e.g.
   `tests/ShippingCalculator.Api.Tests/`), flat — one class per feature, not
   nested in an `Acceptance/` subfolder; service/unit tests in the

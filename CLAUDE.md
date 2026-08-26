@@ -98,10 +98,11 @@ Response 200:
 
 ## Testing Conventions
 
-Two tiers of tests:
+Two tiers of tests, plus a third as soon as the project grows a real outbound dependency:
 
 - **Acceptance tests** (`tests/ShippingCalculator.Api.Tests/`): `WebApplicationFactory<Program>` + `HttpClient`. One test class per feature, suffixed `AcceptanceTests`. Test the full HTTP request/response cycle.
 - **Service / unit tests** (`tests/ShippingCalculator.Domain.Tests/`): Plain xUnit, no `WebApplicationFactory`. Test business logic directly.
+- **Repository / outbound adapter tests** — only once the project has a database, broker, or third-party API. Prove the REAL implementation against the REAL engine with Testcontainers. See "Proving real implementations" below.
 
 Conventions:
 
@@ -110,9 +111,24 @@ Conventions:
 - Acceptance tests verify the HTTP contract; service tests verify business logic. Don't duplicate the same assertions across both tiers.
 - Run the suite with `dotnet test`. The `/accept` and `/tdd` workflows run it for you as part of each cycle, so you see each test go red and green yourself.
 
+### Proving real implementations
+
+The acceptance and service tiers substitute a fake for every outbound dependency. That's correct — it's what keeps the inner loop fast and deterministic. But it also means a repository or adapter can sit at 100% green while never once having run against the system it adapts, and a fake can't reject your SQL, enforce a constraint, or disagree with your mapping.
+
+So when this project grows a real outbound dependency:
+
+- **Writing its real implementation is an ordinary `/tdd` cycle** — same RED → GREEN → REFACTOR, just aimed at the repository/adapter tier. There is no separate skill or workflow for "now make it real", and no adapter should be left as a permanent stub that throws.
+- **Prove it against a real SQL engine.** Prefer Testcontainers (the actual engine you deploy on, in a throwaway container) when Docker is available; SQLite in-memory is a legitimate fallback when it isn't. The EF Core InMemory provider is not a database — no SQL, no constraints — so it never counts as this tier.
+- **Schema changes go through EF Core migrations** (`dotnet ef migrations add <DescribesTheChange>`, generated files committed), applied in tests with `MigrateAsync()` — never `EnsureCreated()`, which bypasses migrations and can pass against a schema they'd never produce. Never edit an already-applied migration; add another.
+- **Only for a dependency with no containerized equivalent** (a vendor SaaS API, a cloud management plane) fall back to environment-variable credentials — the developer's shell locally, repository/environment secrets in CI, never checked-in config — with the test skipping cleanly and explaining why when they're absent.
+
+Worked examples for every tier, including a Testcontainers one, live in `.claude/skills/tdd/test-patterns.md`.
+
 <!-- ADAPT: Change the test directories, the build command, and the example
-     names if your conventions differ. Keep the two-tier structure — the
-     agents and commands assume it. -->
+     names if your conventions differ. Keep the tier structure — the agents
+     and commands assume it. Delete the "Proving real implementations"
+     section only if this project will never talk to a database, broker, or
+     external API. -->
 
 ## Spec Files
 
@@ -142,7 +158,7 @@ No authentication is configured yet. Adding it locks down all endpoints immediat
 The reusable part of the starter — works for any domain:
 
 - **`.claude/settings.json`** — Two hooks: a file guard (PreToolUse) that blocks edits to sensitive files, and a session-start hook that prints orientation context. Tests are run by the `/accept` and `/tdd` workflows, not by hooks, so the red/green steps of the cycle stay visible.
-- **`.claude/hooks/protect-files.sh`** — Blocks edits to sensitive files via `PROTECTED_PATTERNS`.
+- **`.claude/hooks/protect-files.sh`** — Blocks access to sensitive files via `PROTECTED_PATTERNS`, checking both the `file_path` of an `Edit`/`Write` and the command text of a `Bash` call (so a redirect can't sidestep it). A guardrail against honest mistakes, not a sandbox — for hard guarantees use `permissions.deny` in `settings.json`.
 - **`.claude/hooks/session-start.sh`** — Prints the current branch, uncommitted/staged changes, and a workflow reminder at the start of every session.
 - **`.claude/skills/`** — `bootstrap` (resolves every ADAPT point in this file and the harness below — run this once, right after cloning; see README.md → Adapting This Starter), `discover` (rule → example → counter-example → edge cases → questions), `accept` (acceptance test against the real endpoint), `tdd` (failing test → minimum code → verify → refactor), `review` (Step 4 — read-only architecture/spec-compliance/test-quality report; run before committing, whether that's after one cycle or after a whole feature — modifies nothing, just reports and waits), `commit-summary`, and `claudius` (audits this `.claude/` setup itself).
 - **`.claude/commands/quality-check.md`** — chains `spec-compliance`, `architecture-guardian`, and (if a Stryker report exists — run `dotnet stryker` first) `mutation-analyst` into one consolidated report at `quality-report.md` (gitignored — regenerate, don't commit).

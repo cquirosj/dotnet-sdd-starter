@@ -101,11 +101,9 @@ the public starter repo: **https://github.com/cquirosj/dotnet-sdd-starter**
      bootstrap flow — see Step 3's architecture note for what's in it.
    - `.claude/hooks/session-start.sh` — already present in the fetched clone
      for both architectures now; nothing to copy.
-   - `.claude/settings.json` — architecture-conditional: the fetched clone's
-     `settings.json` for layered (already includes the `SessionStart` hook),
-     or `references/hexagonal/settings.json` for hexagonal, which overwrites
-     it with a stricter protected-file list and a `PreToolUse` matcher that
-     also covers `Bash` — see that file for why.
+   - `.claude/settings.json` — the fetched clone's, as-is for now (it already
+     includes the `SessionStart` hook). It gets hardened in Step 5, not here —
+     see that step for why the order matters.
    - `CLAUDE.md` — do NOT copy the fetched clone's CLAUDE.md verbatim (it
      describes the shipping-calculator worked example, which is irrelevant
      here). Instead, write a fresh CLAUDE.md using the ADAPT section structure
@@ -135,7 +133,7 @@ For each item in the checklist:
   **Do not call `AskUserQuestion` at all in brownfield mode** — the point of
   this mode is zero interaction. If a point genuinely can't be inferred with
   reasonable confidence, pick the starter's own default, and record it as a
-  **low-confidence assumption** in the final report (Step 6) rather than
+  **low-confidence assumption** in the final report (Step 7) rather than
   guessing silently or blocking.
 
 Apply each resolved answer immediately: edit `CLAUDE.md` section by section,
@@ -150,11 +148,10 @@ exists on disk as the layered default), replace these files with the bundled
 hexagonal versions from `references/hexagonal/` (relative to this skill):
 `.claude/agents/architecture-guardian.md`, `.claude/rules/domain-rules.md`,
 `.claude/rules/application-rules.md`, `.claude/rules/web-rules.md`,
-`.claude/rules/persistence-rules.md` (delete the layered `controller-rules.md`
-and `service-rules.md` — they don't apply), `.claude/settings.json` (for its
-stricter protected-file list and `Bash`-covering `PreToolUse` matcher —
-`.claude/hooks/session-start.sh` itself needs no change, it's already
-architecture-agnostic), and CLAUDE.md's Architecture section (use
+`.claude/rules/persistence-rules.md` (delete the layered `controller-rules.md`,
+`service-rules.md`, and `repository-rules.md` — they don't apply; the hexagonal
+`persistence-rules.md` carries the same repository/real-engine guidance for
+`Adapter/Out/Persistence/`), and CLAUDE.md's Architecture section (use
 `references/hexagonal/CLAUDE-architecture-section.md` as the replacement
 section body). Also **restructure the worked example's own folders** to match:
 `src/<Project>.Domain/Models/` → split into `Domain/Model/` (pure records/
@@ -197,19 +194,46 @@ In greenfield mode, once you know the real project name:
 3. Run `dotnet build && dotnet test` and fix anything the rename broke before
    continuing. A rename that leaves the solution non-building is not done.
 
-## Step 5 — Verify
+## Step 5 — Harden the settings (both architectures) — do this LAST
+
+Overwrite `.claude/settings.json` with `references/settings-hardened.json`
+(relative to this skill), preserving any project-specific additions you made
+to it earlier. It adds what the shipped default deliberately leaves out:
+
+- `Edit`/`Write` denies on `./.claude/**` and `./.git/**` — the harness and
+  git internals stop being editable once they're correct
+- `Read` deny on `*.p12`, and wildcard `appsettings.Production*` /
+  `appsettings.*.Secrets*` coverage
+- a `PreToolUse` matcher that also covers `Bash`
+
+**Why this is the last step, and why the shipped default omits the
+`.claude/**` deny:** this skill's whole job is rewriting `.claude/` — rules
+files, agents, `protect-files.sh`, this very settings file. A deny on
+`Edit(./.claude/**)` / `Write(./.claude/**)` is enforced by the harness
+regardless of a skill's `allowed-tools`, so shipping it in the starter's
+default would block bootstrap from doing any of that. Apply it only once
+every `.claude/` edit is finished — that's why it lives here and not in
+Step 1 or 3.
+
+If a later change to the harness is genuinely needed, the user removes those
+two deny lines by hand, makes the change, and puts them back — a deliberate,
+visible act rather than a permanently open door.
+
+## Step 6 — Verify
 
 Run `dotnet build && dotnet test` (again, if not just run in Step 4) from the
 repo root. Every test must still pass — the harness changes and any renaming
 must never break existing green tests. If something fails, fix it; don't hand
 back a broken build with an explanation.
 
-## Step 6 — Report
+## Step 7 — Report
 
 Summarize what you did:
 
 - Mode and architecture (detected or given), with the reasoning if detected.
 - Every ADAPT point and its resolution (one line each).
+- That `.claude/settings.json` is now hardened, and what that means in
+  practice: future harness edits need those deny lines temporarily removed.
 - **Brownfield only:** call out every low-confidence assumption explicitly, in
   its own list, so the user knows exactly what to double check — this mode
   never asked, so this is the only place uncertainty surfaces.

@@ -5,10 +5,13 @@
       "Read(./**/*.pem)",
       "Read(./**/*.key)",
       "Read(./**/*.pfx)",
-      "Edit(./**/appsettings.Production.json)",
-      "Write(./**/appsettings.Production.json)",
+      "Read(./**/*.p12)",
       "Edit(./.github/workflows/**)",
-      "Write(./.github/workflows/**)"
+      "Write(./.github/workflows/**)",
+      "Edit(./**/appsettings.Production*)",
+      "Write(./**/appsettings.Production*)",
+      "Edit(./**/appsettings.*.Secrets*)",
+      "Write(./**/appsettings.*.Secrets*)"
     ]
   },
   "hooks": {
@@ -25,7 +28,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|Bash",
         "hooks": [
           {
             "type": "command",
