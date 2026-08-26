@@ -20,6 +20,10 @@ You are editing a driven (outbound) persistence adapter.
   **InMemory provider is not a database** — no SQL, no constraints — so it
   never counts as this tier. See `.claude/skills/tdd/test-patterns.md` →
   "Repository / outbound adapter".
+- **If `docs/context/adapter-testing-strategy.md` exists, it outranks the
+  preference above** — that project has at least one dependency no container
+  can stand in for, so which tier proves a given adapter is decided by the
+  port → tier map in that doc, not by preferring containers.
 - Writing this adapter's real implementation is an ordinary `/tdd` cycle at
   that tier — not a separate workflow, and not something to leave as a
   throwing stub once the port's callers are green.

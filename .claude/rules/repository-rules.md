@@ -26,6 +26,10 @@ talks to the database.
   constraints, so it never counts as this tier. See
   `.claude/skills/tdd/test-patterns.md` → "Repository / outbound adapter" for
   the comparison table and a worked example.
+- **If `docs/context/adapter-testing-strategy.md` exists, it outranks the
+  preference above** — that project has at least one dependency no container
+  can stand in for, so which tier proves a given adapter is decided by the
+  port → tier map in that doc, not by preferring containers.
 - Writing this repository's real implementation is an ordinary `/tdd` cycle at
   that tier — not a separate workflow, and not something to defer once the
   services calling it are green.

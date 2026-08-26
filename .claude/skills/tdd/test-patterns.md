@@ -443,9 +443,9 @@ the tier and let a fake stand in for the real implementation. A SQLite-backed
 repository test that actually runs your queries is worth far more than no
 repository test at all.
 
-**The genuine exception: a dependency with no containerized equivalent** — a
-vendor SaaS API, a cloud provider's management plane. Only there, fall back
-to a test that reads credentials **exclusively from environment variables**
+**The exception: a dependency with no containerized equivalent** — a vendor
+SaaS API, a cloud provider's management plane. There, fall back to a test that
+reads credentials **exclusively from environment variables**
 (the developer's shell locally, repository/environment secrets in CI — never
 `appsettings.json`, never hard-coded), and **skips cleanly with an
 explanatory message** when they're absent, so a contributor without those
@@ -470,6 +470,16 @@ skip. The adapter itself takes its configuration the normal ASP.NET Core way
 — constructor-injected `IOptions<T>` / `IConfiguration`, bound from
 environment variables by the framework's built-in provider — never a direct
 `Environment.GetEnvironmentVariable` call in production code.
+
+**If that "exception" is actually most of what this project does** — a service
+whose purpose is provisioning or managing cloud infrastructure — then the
+default above is inverted for you, and treating the cloud path as an
+afterthought will leave your real adapters unproven. Such a project wants a
+standing third tier in its own test project, and a **port → tier map** deciding
+which adapter is proven where, rather than a blanket preference for containers.
+`/bootstrap` asks about this (checklist §12) and writes
+`docs/context/adapter-testing-strategy.md` when it applies; if this project
+has such a doc, **it outranks this section.**
 
 ## Data-driven rules → one `[Theory]`, not one `[Fact]` per row
 

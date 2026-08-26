@@ -234,6 +234,11 @@ Summarize what you did:
 - Every ADAPT point and its resolution (one line each).
 - That `.claude/settings.json` is now hardened, and what that means in
   practice: future harness edits need those deny lines temporarily removed.
+- **If checklist §12 found a cloud-only dependency:** that this project carries
+  a permanent cloud test tier, where its cost and cadence decisions are
+  recorded, and that CI for that tier still has to be written by a human —
+  `.github/workflows/` is protected. Say plainly if either decision was left
+  unresolved (brownfield always leaves them unresolved, since it never asks).
 - **Brownfield only:** call out every low-confidence assumption explicitly, in
   its own list, so the user knows exactly what to double check — this mode
   never asked, so this is the only place uncertainty surfaces.

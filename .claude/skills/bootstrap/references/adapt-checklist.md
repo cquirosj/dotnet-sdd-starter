@@ -113,6 +113,13 @@ worked example ships with none, so the starter's default is "not yet."
   or a registered `HttpClient`/`IHttpClientFactory`; and look for a
   `Repositories/`, `Adapter/Out/`, or `*DbContext.cs`.
 
+**If there are none:** delete CLAUDE.md's *Proving real implementations*
+section (per its own ADAPT comment), drop the repository tier row from Testing
+Conventions, and delete the repository/persistence rules file. Don't leave a
+section describing a tier this project has nothing to put in — and say in the
+final report that it was removed, so it's re-added deliberately when the first
+real dependency arrives. Skip §12.
+
 **If there is at least one:**
 
 - Keep CLAUDE.md's *Proving real implementations* section and the repository
@@ -120,12 +127,6 @@ worked example ships with none, so the starter's default is "not yet."
 - Keep `.claude/rules/repository-rules.md` (layered) or
   `.claude/rules/persistence-rules.md` (hexagonal), and correct its `paths:`
   frontmatter to the folder this project actually uses.
-- Add the test package for the engine you'll prove against: the matching
-  Testcontainers one (`Testcontainers.PostgreSql`, `Testcontainers.MsSql`,
-  `Testcontainers.RabbitMq`, … — one per engine, not the meta-package) when
-  Docker is available, or `Microsoft.Data.Sqlite` for the no-Docker fallback.
-  Ask (greenfield) / check for a `Dockerfile`, compose file, or CI service
-  container (brownfield) before assuming Docker is on hand.
 - **Relational database specifically:** confirm schema changes go through EF
   Core migrations. **Brownfield:** look for a `Migrations/` folder next to the
   `DbContext`; if there is none but there is a `DbContext`, or if you find
@@ -138,9 +139,70 @@ worked example ships with none, so the starter's default is "not yet."
   thing this bootstrap can surface — but adding those tests is later `/tdd`
   work, not something this skill does inline.
 
-**If there are none:** delete CLAUDE.md's *Proving real implementations*
-section (per its own ADAPT comment), drop the repository tier row from Testing
-Conventions, and delete the repository/persistence rules file. Don't leave a
-section describing a tier this project has nothing to put in — and say in the
-final report that it was removed, so it's re-added deliberately when the first
-real dependency arrives.
+Then resolve §12 — do not skip it on the assumption that Testcontainers is the
+answer.
+
+## 12. Can those dependencies actually run locally?
+
+**Confirm this; never assume it.** Testcontainers-by-default is right for most
+business applications and wrong for some — a service whose job *is* cloud
+infrastructure (provisioning, tenant management, anything driving a control
+plane) has ports that no container can stand in for. Bootstrapping such a
+project with "prefer Testcontainers, cloud is the narrow exception" produces
+guidance that quietly never fits, and the adapters end up unproven.
+
+- **Ask (greenfield):** "Can each of those dependencies run locally in a
+  container for tests, or does one of them only exist in the cloud?" Offer:
+  *all of them can run locally* (typical — a database, broker, cache, or an
+  API you can fake with a container) · *at least one is cloud-only* (a cloud
+  provider's control plane, a vendor SaaS with no emulator) · *not sure yet*.
+- **Infer (brownfield):** management/control-plane SDKs are the tell —
+  `Azure.ResourceManager.*`, `Azure.Identity`, `AWSSDK.*`, `Google.Cloud.*`,
+  Bicep/Terraform/Pulumi files, or a workflow that runs `az`/`aws`/`gcloud`.
+  Data-plane clients (`Azure.Messaging.ServiceBus`, `StackExchange.Redis`)
+  usually have a local equivalent; control-plane ones usually do not.
+
+### If everything can run locally (the common case)
+
+The shipped guidance is already correct — leave it as is. Add the test package
+for each engine: the matching Testcontainers one (`Testcontainers.PostgreSql`,
+`Testcontainers.MsSql`, `Testcontainers.RabbitMq`, … one per engine, not the
+meta-package) when Docker is available, or `Microsoft.Data.Sqlite` for the
+no-Docker fallback. Ask (greenfield) / check for a `Dockerfile`, compose file,
+or CI service container (brownfield) before assuming Docker is on hand.
+
+### If any dependency is cloud-only
+
+The project needs a **third tier**, and two decisions that are the user's, not
+yours. Ask both (greenfield) or flag them as unresolved in the final report
+(brownfield) — never pick for them, because both cost money:
+
+- "Where should tests that touch real cloud infrastructure run?" Offer:
+  manual / on-demand · nightly · per-PR · local only, never in CI.
+- "Is a subscription or account available for automated tests?" Offer: a
+  dedicated test one · a shared or personal one, keep usage minimal · not yet.
+
+Then adapt the project:
+
+- **Add a second test project** for the cloud tier, separate from the local-
+  infrastructure one — `<Project>.CloudTests` alongside
+  `<Project>.IntegrationTests`. Separate projects (not just traits) keep the
+  expensive tier structurally hard to run by accident, keep the cloud SDK out
+  of the cheap tier, and let CI target it by path. Add it to the `.slnx`.
+- **Write `docs/context/adapter-testing-strategy.md`**, tailored to this
+  project, containing: a **port → tier map** (one row per outbound port: what
+  "real" means for it, and which tier proves it); the tier definitions; the
+  **dev-environment compromises** (what tooling each tier needs, and that the
+  cloud tier must skip cleanly without credentials so a contributor without
+  access still sees green); and the **CI compromises** implied by the cadence
+  they chose — cost ceiling, unique resource naming, guaranteed teardown even
+  on failure, a scheduled janitor for leaks, federated/OIDC credentials rather
+  than stored secrets, and skipping on fork PRs.
+- **Point the rules at it.** The adapter/persistence rules file and
+  CLAUDE.md's testing section must say the tier is chosen by looking the port
+  up in that map — not by preferring containers. Otherwise the generic default
+  reasserts itself the first time someone writes an adapter.
+- **State plainly in the final report** that this project carries a permanent
+  cloud tier, that its cost and cadence decisions are recorded in the strategy
+  doc, and that CI for it still has to be written by a human (`.github/workflows/`
+  is protected).
